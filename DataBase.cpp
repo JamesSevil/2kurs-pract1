@@ -6,6 +6,20 @@
 
 using namespace std;
 
+int CountLine(string filepath) { // ф-ия подсчёта строк в файле
+    ifstream file;
+    file.open(filepath);
+    int countline;
+    string line;
+
+    while(getline(file, line)) {
+        countline++;
+    }
+    file.close();
+
+    return countline;
+}
+
 void parse(string& nameBD, map<string,vector<string>>& tables, int& tupleslimit) { // ф-ия парсинга
     // объект парсинга
     nlohmann::json objJson;
@@ -27,6 +41,9 @@ void parse(string& nameBD, map<string,vector<string>>& tables, int& tupleslimit)
     if (objJson.contains("structure") && objJson["structure"].is_object()) { // проверяем, существование объекта и является ли он объектом
         for (auto elem : objJson["structure"].items()) {
             tables[elem.key()] = objJson["structure"][elem.key()];
+            // добавляем первичный ключ
+            string key = elem.key() + "_pk_sequence";
+            tables[elem.key()].insert(tables[elem.key()].begin(), key);
         }
     } else {
         cout << "Объект подкаталогов не найден!" << endl;
@@ -67,12 +84,15 @@ void insert(string& table, string& values, string& nameBD) { // вставка �
     fstream file;
     file.open(filepath);
     file >> check;
-    if (check == "open") {
+    if (check == "open") { // проверка, открыта ли таблица
         file << "lock";
         file.close();
 
+        // вставка значений в csv, не забывая про увеличение ключа
         filepath = nameBD + "/" + table + "/1.csv";
+        int countline = CountLine(filepath);
         file.open(filepath, ios::app);
+        values = to_string(countline) + "," + values;
         file << values << endl;
         file.close();
 
