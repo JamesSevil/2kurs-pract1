@@ -42,8 +42,7 @@ void mkdir(string& nameBD, map<string,vector<string>>& tables) { // ф-ия фо
     for (auto keys : tables) {
         command = "mkdir " + nameBD + "/" + keys.first;
         system(command.c_str());
-        string filepath;
-        filepath = nameBD + "/" + keys.first + "/1.csv";
+        string filepath = nameBD + "/" + keys.first + "/1.csv";
         ofstream file;
         file.open(filepath);
         string str; // строка, которую впишем в csv
@@ -54,15 +53,38 @@ void mkdir(string& nameBD, map<string,vector<string>>& tables) { // ф-ия фо
         file << str << endl;
         file.close();
         str.clear();
+
+        // Блокировка таблицы
+        filepath = nameBD + "/" + keys.first + "/" + keys.first + "_lock.txt";
+        file.open(filepath);
+        file << "open";
+        file.close();
     }
 }
 
 void insert(string& table, string& values, string& nameBD) { // вставка в таблицу
-    string filepath = nameBD + "/" + table + "/1.csv";
-    ofstream file;
-    file.open(filepath, ios::app);
-    file << values << endl;
-    file.close();
+    string check, filepath = nameBD + "/" + table + "/" + table + "_lock.txt";
+    fstream file;
+    file.open(filepath);
+    file >> check;
+    if (check == "open") {
+        file << "lock";
+        file.close();
+
+        filepath = nameBD + "/" + table + "/1.csv";
+        file.open(filepath, ios::app);
+        file << values << endl;
+        file.close();
+
+        filepath = nameBD + "/" + table + "/" + table + "_lock.txt";
+        file.open(filepath);
+        file << "open";
+        file.close();
+        cout << "Команда выполнена!" << endl;
+    } else {
+        file.close();
+        cout << "Доступ закрыт: таблица открыта другим пользователем!";
+    }
 }
 
 void isValidInsert(map<string, vector<string>>& tables, string& nameBD) { // ф-ия проверки ввода команды insert
@@ -81,7 +103,6 @@ void isValidInsert(map<string, vector<string>>& tables, string& nameBD) { // ф-
                 if (values[0] == '(' && values[values.size()-1] == ')') {
                     values.erase(values.begin());
                     values.erase(values.end() - 1);
-                    cout << "Команда принята!" << endl << endl;
                     insert(table, values, nameBD);
                 } else {
                     cout << "Нарушен синтаксис команды insert!" << endl;
