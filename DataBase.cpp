@@ -6,10 +6,10 @@
 
 using namespace std;
 
-int CountLine(string filepath) { // ф-ия подсчёта строк в файле
+int CountLine(string& filepath) { // ф-ия подсчёта строк в файле
     ifstream file;
     file.open(filepath);
-    int countline;
+    int countline = 0;
     string line;
 
     while(getline(file, line)) {
@@ -20,7 +20,7 @@ int CountLine(string filepath) { // ф-ия подсчёта строк в фа�
     return countline;
 }
 
-void parse(string& nameBD, map<string,vector<string>>& tables, int& tupleslimit) { // ф-ия парсинга
+void parse(string& nameBD, map<string,vector<string>>& tables, map<string,int>& fileindex, int& tupleslimit, map<string,int>& countlines) { // ф-ия парсинга
     // объект парсинга
     nlohmann::json objJson;
     fstream fileinput;
@@ -40,7 +40,10 @@ void parse(string& nameBD, map<string,vector<string>>& tables, int& tupleslimit)
     // парсим подкаталоги
     if (objJson.contains("structure") && objJson["structure"].is_object()) { // проверяем, существование объекта и является ли он объектом
         for (auto elem : objJson["structure"].items()) {
-            tables[elem.key()] = objJson["structure"][elem.key()];
+            tables[elem.key()] = objJson["structure"][elem.key()]; // таблицы и их столбцы
+            fileindex[elem.key()] = 1; // индекс файла csv в таблице
+            countlines[elem.key()] = 1; // кол-во строк в таблицах
+
             // добавляем первичный ключ
             string key = elem.key() + "_pk_sequence";
             tables[elem.key()].insert(tables[elem.key()].begin(), key);
@@ -79,7 +82,7 @@ void mkdir(string& nameBD, map<string,vector<string>>& tables) { // ф-ия фо
     }
 }
 
-void insert(string& table, string& values, string& nameBD) { // вставка в таблицу
+void insert(string& table, string& values, string& nameBD, map<string,int>& fileindex, int& tupleslimit, map<string,int>& countlines) { // вставка в таблицу
     string check, filepath = nameBD + "/" + table + "/" + table + "_lock.txt";
     fstream file;
     file.open(filepath);
@@ -89,11 +92,16 @@ void insert(string& table, string& values, string& nameBD) { // вставка �
         file.close();
 
         // вставка значений в csv, не забывая про увеличение ключа
-        filepath = nameBD + "/" + table + "/1.csv";
-        int countline = CountLine(filepath);
+        filepath = nameBD + "/" + table + "/" + to_string(fileindex[table]) + ".csv";
+        int countline = CountLine(filepath); // кол-во строк конкретного файла таблицы
+        if (countline == tupleslimit) { // если достигнут лимит, то создаем новый файл
+            fileindex[table]++;
+            filepath = nameBD + "/" + table + "/" + to_string(fileindex[table]) + ".csv";
+        }
         file.open(filepath, ios::app);
-        values = to_string(countline) + "," + values;
+        values = to_string(countlines[table]) + "," + values;
         file << values << endl;
+        countlines[table]++;
         file.close();
 
         filepath = nameBD + "/" + table + "/" + table + "_lock.txt";
@@ -107,7 +115,7 @@ void insert(string& table, string& values, string& nameBD) { // вставка �
     }
 }
 
-void isValidInsert(map<string, vector<string>>& tables, string& nameBD) { // ф-ия проверки ввода команды insert
+void isValidInsert(map<string, vector<string>>& tables, string& nameBD, map<string,int>& fileindex, int& tupleslimit, map<string,int>& countlines) { // ф-ия проверки ввода команды insert
     string command;
     cin >> command;
     if (command == "into") {
@@ -123,7 +131,7 @@ void isValidInsert(map<string, vector<string>>& tables, string& nameBD) { // ф-
                 if (values[0] == '(' && values[values.size()-1] == ')') {
                     values.erase(values.begin());
                     values.erase(values.end() - 1);
-                    insert(table, values, nameBD);
+                    insert(table, values, nameBD, fileindex, tupleslimit, countlines);
                 } else {
                     cout << "Нарушен синтаксис команды insert!" << endl;
                 }
@@ -144,7 +152,9 @@ int main() {
     string nameBD;
     int tupleslimit;
     map<string, vector<string>> tables;
-    parse(nameBD, tables, tupleslimit); // ф-ия парсинга
+    map<string, int> fileindex;
+    map<string, int> countlines;
+    parse(nameBD, tables, fileindex, tupleslimit, countlines); // ф-ия парсинга
 
     mkdir(nameBD, tables); // ф-ия формирования директории
 
@@ -153,7 +163,7 @@ int main() {
         string command;
         cin >> command;
         if (command == "insert") {
-            isValidInsert(tables, nameBD);
+            isValidInsert(tables, nameBD, fileindex, tupleslimit, countlines);
         } else {
             cout << "Нет такой команды!" << endl;
         }
