@@ -1,5 +1,7 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <algorithm>
 #include <map>
 #include <vector>
 #include "json.hpp"
@@ -154,6 +156,76 @@ struct DataBase {
         }
     }
 
+    void del(string& table, string& stlb, string& values) { // НАДО ДОБАВИТЬ ДЛЯ ВСЕХ ФАЙЛОВ CSV
+        int stlbindex = distance(tables[table].begin(), find(tables[table].begin(), tables[table].end(), stlb)); // находим индекс столбца
+        ifstream file;
+        string filepath = nameBD + "/" + table + "/" + to_string(fileindex[table]) + ".csv";
+        file.open(filepath);
+        vector<string> filteredlines;
+        string line;
+        while(getline(file, line)) {
+            stringstream ss(line);
+            string cell;
+            int currentIndex = 0;
+            bool shouldRemove = false;
+            while(getline(ss, cell, ',')) {
+                if (currentIndex == stlbindex && cell == values) {
+                    shouldRemove = true;
+                    break;
+                }
+                currentIndex++;
+            }
+            if (!shouldRemove) {
+            filteredlines.push_back(line);
+            }
+        }
+        file.close();
+        
+        ofstream outputfile;
+        outputfile.open(filepath);
+        for (auto elem : filteredlines) {
+            outputfile << elem << endl;
+        }
+        outputfile.close();
+        cout << "Команда выполнена!" << endl;
+    }
+
+    void isValidDel() {
+        string command;
+        cin >> command;
+        if (command == "from") {
+            string table;
+            cin >> table;
+            auto it = tables.find(table);
+            if (it != tables.end()) {
+                cin >> command;
+                if (command == "where") {
+                    string stlb;
+                    cin >> stlb;
+                    auto it = find(tables[table].begin(), tables[table].end(), stlb); // под вопросом двойное использование!!!!!
+                    if (it != tables[table].end()) {
+                        cin >> command;
+                        if (command == "=") {
+                            string values;
+                            cin >> values;
+                            del(table, stlb, values);
+                        } else {
+                            cout << "Нарушен синтаксис команды delete!" << endl;
+                        }
+                    } else {
+                        cout << "Нет такой колонки!" << endl;
+                    }
+                } else {
+                    cout << "Нарушен синтаксис команды delete!" << endl;
+                }
+            } else {
+                cout << "Нет такой таблицы!" << endl;
+            }
+        } else {
+            cout << "Нарушен синтаксис команды delete!" << endl;
+        }
+    }
+
 };
 
 
@@ -170,6 +242,10 @@ int main() {
         cin >> command;
         if (command == "insert") {
             carshop.isValidInsert();
+        } else if (command == "delete") {
+            carshop.isValidDel();
+        } else if (command == "select") {
+
         } else {
             cout << "Нет такой команды!" << endl;
         }
