@@ -23,8 +23,9 @@ struct SinglyLinkedList {
     void pop_front(); // удаление элемента с начала
     void pop_back(); // удаление элемента с конца
     void remove(T value); // удаление элемента по значению
-    bool find(T value); // поиск элемента по значению
-    T get(int index); // поиск элемента по индексу
+    void replace(int index, T newValue); // ф-ия замены элемента по индексу
+    int getindex(T value); // поиск элемента по значению
+    T getvalue(int index); // поиск элемента по индексу
 };
 
 template <typename T>

@@ -86,19 +86,35 @@ void SinglyLinkedList<T>::remove(T value) {
 }
 
 template<typename T>
-bool SinglyLinkedList<T>::find(T value) {
+void SinglyLinkedList<T>::replace(int index, T newValue) {
+        if (index < 0 || index >= size) {
+            cout << "Index out of bounds." << endl;
+            return;
+        }
+
+        Node<T>* current = head;
+        for (int i = 0; i < index; i++) {
+            current = current->next;
+        }
+        current->data = newValue;
+    }
+
+template<typename T>
+int SinglyLinkedList<T>::getindex(T value) {
     Node<T>* current = head;
+    int index = 0;
     while (current) {
         if (current->data == value) {
-            return true; // Элемент найден
+            return index; // Элемент найден, возвращаем индекс
         }
         current = current->next;
+        index++;
     }
-    return false; // Элемент не найден
+    return -1; // Если элемент не найден, возвращаем -1
 }
 
 template<typename T>
-T SinglyLinkedList<T>::get(int index) {
+T SinglyLinkedList<T>::getvalue(int index) {
     if (index < 0 || index >= size) {
         throw out_of_range("Index out of range");
     }
