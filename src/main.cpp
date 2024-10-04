@@ -1,13 +1,13 @@
 #include "../include/json.hpp"
-#include "../include/array.h"
+#include "../include/list.h"
 
 struct DataBase {
     string nameBD; // название БД
     int tupleslimit; // лимит строк
-    Array<string> nametables; // названия таблиц
-    Array<string> stlb; // столбцы таблиц
-    Array<int> fileindex; // кол-во файлов таблиц
-    Array<int> countlines; // кол-во строк таблиц
+    SinglyLinkedList<string> nametables; // названия таблиц
+    SinglyLinkedList<string> stlb; // столбцы таблиц
+    SinglyLinkedList<int> fileindex; // кол-во файлов таблиц
+    SinglyLinkedList<int> countlines; // кол-во строк таблиц
 
     void parse() { // ф-ия парсинга
         
@@ -29,7 +29,7 @@ struct DataBase {
         // парсим подкаталоги
         if (objJson.contains("structure") && objJson["structure"].is_object()) { // проверяем, существование объекта и является ли он объектом
             for (auto elem : objJson["structure"].items()) {
-                nametables.add(elem.key());
+                nametables.push_back(elem.key());
                 
                 string kolonki = elem.key() + "_pk_sequence,"; // добавление первичного ключа
                 for (auto str : objJson["structure"][elem.key()].items()) {
@@ -37,9 +37,9 @@ struct DataBase {
                     kolonki += ',';
                 }
                 kolonki.pop_back(); // удаление последней запятой
-                stlb.add(kolonki);
-                fileindex.add(1);
-                countlines.add(1);
+                stlb.push_back(kolonki);
+                fileindex.push_back(1);
+                countlines.push_back(1);
             }
         } else {
             cout << "Объект подкаталогов не найден!" << endl;
@@ -52,7 +52,7 @@ struct DataBase {
         command = "mkdir ../" + nameBD; // каталог
         system(command.c_str());
 
-        for (int i = 0; i < nametables.length(); ++i) { // подкаталоги и файлы в них
+        for (int i = 0; i < nametables.size; ++i) { // подкаталоги и файлы в них
             command = "mkdir ../" + nameBD + "/" + nametables.get(i);
             system(command.c_str());
             string filepath = "../" + nameBD + "/" + nametables.get(i) + "/1.csv";
