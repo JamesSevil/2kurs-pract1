@@ -84,6 +84,8 @@ struct DataBase {
         string check, filepath = "../" + nameBD + "/" + table + "/" + table + "_lock.txt";
         int index = nametables.getindex(table); // получаем индекс таблицы(aka key)
         int val = fileindex.getvalue(index); // получаем номер файла по индеку(ключу)
+        int fileid = 1; // номер файла csv
+        
         fstream file;
         file.open(filepath);
         file >> check;
@@ -92,11 +94,17 @@ struct DataBase {
             file.close();
 
             // вставка значений в csv, не забывая про увеличение ключа
-            filepath = "../" + nameBD + "/" + table + "/" + to_string(val) + ".csv";
+            filepath = "../" + nameBD + "/" + table + "/1.csv";
             int countline = CountLine(filepath); // кол-во строк конкретного файла таблицы
-            if (countline == tupleslimit) { // если достигнут лимит, то создаем новый файл
-                fileindex.replace(index, val++);
-                filepath = "../" + nameBD + "/" + table + "/" + to_string(val++) + ".csv";
+            while (true) {
+                if (countline == tupleslimit) { // если достигнут лимит, то создаем/открываем другой файл
+                    fileid++;
+                    filepath = "../" + nameBD + "/" + table + "/" + to_string(fileid) + ".csv";
+                    if (fileindex.getvalue(index) < fileid) {
+                        fileindex.replace(index, fileid);
+                    }
+                } else break;
+                countline = CountLine(filepath);
             }
             file.open(filepath, ios::app);
             val = countlines.getvalue(index);
@@ -146,6 +154,112 @@ struct DataBase {
             cout << "Нарушен синтаксис команды insert!" << endl;
         }
     }
+
+    void del(string& table, string&stolbec, string& values) {
+        string check, filepath = "../" + nameBD + "/" + table + "/" + table + "_lock.txt";
+        int index = nametables.getindex(table);
+        ifstream fileinput;
+        ofstream fileoutput;
+        fileinput.open(filepath);
+        fileinput >> check;
+        if (check == "open") { // проверка, открыта ли таблица
+            fileinput.close();
+            fileoutput.open(filepath);
+            fileoutput << "lock";
+            fileoutput.close();
+
+            // нахождение индекса столбца в файле
+            string str = stlb.getvalue(index);
+            stringstream ss(str);
+            int stolbecindex = 1;
+            while (getline(ss, str, ',')) {
+                if (str == stolbec) break;
+                stolbecindex++;
+            }
+
+            // операция удаления по всем файлам csv
+            int copy = fileindex.getvalue(index);
+            while (copy != 0) {
+                filepath = "../" + nameBD + "/" + table + "/" + to_string(copy) + ".csv";
+                fileinput.open(filepath);
+                string filteredlines;
+                str.clear();
+                while (getline(fileinput, str)) {
+                    stringstream iss(str);
+                    string line;
+                    int currentIndex = 1;
+                    bool shouldRemove = false;
+                    while(getline(iss, line, ',')) {
+                        if (currentIndex == stolbecindex && line == values) {
+                            shouldRemove = true;
+                            break;
+                        }
+                        currentIndex++;
+                    }
+                    if (!shouldRemove) {
+                        filteredlines += str + "\n"; 
+                    }
+                }
+                fileinput.close();
+
+                fileoutput.open(filepath);
+                fileoutput << filteredlines;
+                fileoutput.close();
+
+                copy--;
+            }
+
+            filepath = "../" + nameBD + "/" + table + "/" + table + "_lock.txt";
+            fileoutput.open(filepath);
+            fileoutput << "open";
+            fileoutput.close();
+            cout << "Команда выполнена!" << endl;
+        } else {
+            fileinput.close();
+            cout << "Доступ закрыт: таблица открыта другим пользователем!";
+        }
+    }
+
+    void isValidDelete() { // ф-ия проверки ввода команды delete
+        string command;
+        cin >> command;
+        if (command == "from") {
+            string table;
+            cin >> table;
+            int index = nametables.getindex(table);
+            if (index != -1) {
+                cin >> command;
+                if (command == "where") {
+                    string stolbec;
+                    cin >> stolbec;
+                    string str = stlb.getvalue(index);
+                    stringstream ss(str);
+                    bool check = false;
+                    while (getline(ss, str, ',')) {
+                        if (str == stolbec) check = true;
+                    }
+                    if (check) {
+                        cin >> command;
+                        if (command == "=") {
+                            string values;
+                            cin >> values;
+                            del(table, stolbec, values);
+                        } else {
+                            cout << "Нарушен синтаксис команды delete!" << endl;
+                        }
+                    } else {
+                        cout << "Нет такой колонки!" << endl;
+                    }
+                } else {
+                    cout << "Нарушен синтаксис команды delete!" << endl;
+                }
+            } else {
+                cout << "Нет такой таблицы!" << endl;
+            }
+        } else {
+            cout << "Нарушен синтаксис команды delete!" << endl;
+        }
+    }
 };
 
 int main() {
@@ -162,7 +276,7 @@ int main() {
         if (command == "insert") {
             carshop.isValidInsert();
         } else if (command == "delete") {
-
+            carshop.isValidDelete();
         } else if (command == "select") {
 
         } else if (command == "exit") {
