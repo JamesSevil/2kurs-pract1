@@ -499,23 +499,81 @@ struct DataBase {
                                 position = command.find_first_of(' ');
                                 if ((position != -1) && (command[0] == '=')) {
                                     command.erase(0, position + 1);
-                                    if (command.find(" or ") == -1 || command.find(" and ") == -1) { // если нет лог. операторов
-                                        position = command.find_first_of(' ');
-                                        if (position == -1) {
-                                            if (command.find_first_of('.') == -1) { // если просто значение
-                                                conditions.value = command;
-                                                conditions.check = true;
-                                                selectWithValue(cond, table, column, conditions);
-                                            } else { // если столбец
-                                                command.replace(command.find_first_of('.'), 1, " ");
-                                                stringstream iss(command);
-                                                iss >> conditions.table >> conditions.column;
-                                                conditions.check = false;
-                                                selectWithValue(cond, table, column, conditions);
-                                            }
-                                        } else cout << "Ошибка, нарушен синтаксис команды!" << endl;
+                                    position = command.find_first_of(' ');
+                                    if (position == -1) { // если нет лог. операторов
+                                        if (command.find_first_of('.') == -1) { // если просто значение
+                                            conditions.value = command;
+                                            conditions.check = true;
+                                            selectWithValue(cond, table, column, conditions);
+                                        } else { // если столбец
+                                            command.replace(command.find_first_of('.'), 1, " ");
+                                            stringstream iss(command);
+                                            iss >> conditions.table >> conditions.column;
+                                            conditions.check = false;
+                                            selectWithValue(cond, table, column, conditions);
+                                        }
+
                                     } else { // если есть лог. операторы
-                                        cout << "Это пизда" << endl;
+                                        SinglyLinkedList<Where> values;
+                                        token = command.substr(0, position);
+                                        command.erase(0, position + 1);
+                                        if (token.find_first_of('.') == -1) { // если просто значение
+                                            conditions.value = token;
+                                            conditions.check = true;
+                                            values.push_back(conditions);
+                                        } else { // если столбец
+                                            token.replace(token.find_first_of('.'), 1, " ");
+                                            stringstream stream(token);
+                                            stream >> conditions.table >> conditions.column;
+                                            conditions.check = false;
+                                            values.push_back(conditions);
+                                        }
+                                        position = command.find_first_of(' ');
+                                        if ((position != -1) && (command.substr(0, 2) == "or" || command.substr(0, 3) == "and")) {
+                                            conditions.logicalOP = command.substr(0, position);
+                                            command.erase(0, position + 1);
+                                            position = command.find_first_of(' ');
+                                            if (position != -1) {
+                                                token = command.substr(0, position);
+                                                command.erase(0, position + 1);
+                                                if (token.find_first_of('.') != -1) {
+                                                    token.replace(token.find_first_of('.'), 1, " ");
+                                                    stringstream istream(token);
+                                                    SinglyLinkedList<string> tables;
+                                                    SinglyLinkedList<string> columns;
+                                                    tables.push_back(table);
+                                                    columns.push_back(column);
+                                                    istream >> table >> column;
+                                                    tables.push_back(table);
+                                                    columns.push_back(column);
+                                                    if (table == cond.getvalue(0).table) { // проверка таблицы в where
+                                                        position = command.find_first_of(' ');
+                                                        if ((position != -1) && (command[0] == '=')) {
+                                                            command.erase(0, position + 1);
+                                                            position = command.find_first_of(' ');
+                                                            if (position == -1) { // если нет лог. операторов
+                                                                if (command.find_first_of('.') == -1) { // если просто значение
+                                                                    conditions.value = command.substr(0, position);
+                                                                    conditions.check = true;
+                                                                    command.erase(0, position + 1);
+                                                                    values.push_back(conditions);
+                                                                    selectWithLogic(cond, tables, columns, values);
+                                                                } else { // если столбец
+                                                                    token = command.substr(0, position);
+                                                                    token.replace(token.find_first_of('.'), 1, " ");
+                                                                    command.erase(0, position + 1);
+                                                                    stringstream stream(token);
+                                                                    stream >> conditions.table >> conditions.column;
+                                                                    conditions.check = false;
+                                                                    values.push_back(conditions);
+                                                                    selectWithLogic(cond, tables, columns, values);
+                                                                }
+                                                            } else cout << "Ошибка, нарушен синтаксис команды!" << endl;
+                                                        } else cout << "Ошибка, нарушен синтаксис команды!" << endl;
+                                                    } else cout << "Ошибка, таблица в where не совпадает с начальной!" << endl;
+                                                } else cout << "Ошибка, нарушен синтаксис команды!" << endl;
+                                            } else cout << "Ошибка, нарушен синтаксис команды!" << endl;
+                                        } else cout << "Ошибка, нарушен синтаксис команды!" << endl;
                                     }
                                 } else cout << "Ошибка, нарушен синтаксис команды!" << endl;
                             } else cout << "Ошибка, таблица в where не совпадает с начальной!" << endl;
@@ -631,7 +689,109 @@ struct DataBase {
         }
     }
 
+    void selectWithLogic(SinglyLinkedList<Where>& conditions, SinglyLinkedList<string>& table, SinglyLinkedList<string>& stolbec, SinglyLinkedList<Where>& value) {
+        for (int i = 0; i < conditions.size; ++i) {
+            bool check = checkLockTable(conditions.getvalue(i).table);
+            if (!check) {
+                cout << "Ошибка, таблица открыта другим пользователем!" << endl;
+                return;
+            }
+        }
+        string filepath;
+        for (int i = 0; i < conditions.size; ++i) {
+            filepath = "../" + nameBD + '/' + conditions.getvalue(i).table + '/' + conditions.getvalue(i).table + "_lock.txt";
+            foutput(filepath, "close");
+        }
 
+        SinglyLinkedList<int> stlbindex = findIndexStlb(conditions); // узнаем индексы столбцов после "select"
+        SinglyLinkedList<string> tables = textInFile(conditions); // записываем данные из файла в переменные для дальнейшей работы
+        SinglyLinkedList<int> stlbindexval;// узнаем индексы столбца условия
+        for (int i = 0; i < stolbec.size; ++i) {
+            int index = findIndexStlbCond(table.getvalue(i), stolbec.getvalue(i));
+            stlbindexval.push_back(index);
+        }
+        SinglyLinkedList<int> stlbindexvalnext; // узнаем индекс столбца условия после '='(нужно если условиестолбец)
+        for (int i = 0; i < value.size; ++i) {
+            int index = findIndexStlbCond(value.getvalue(i).table, value.getvalue(i).column); // узнаем индекс столбца условия после '='(нужно если условиестолбец)
+            stlbindexvalnext.push_back(index);
+        }
+
+        SinglyLinkedList<string> column;
+        for (int j = 0; j < value.size; ++j) {
+            if (!value.getvalue(j).check) { // если условие столбец
+                for (int i = 0; i < conditions.size; ++i) {
+                    if (conditions.getvalue(i).table == value.getvalue(0).table) {
+                        stringstream stream(tables.getvalue(i));
+                        string str;
+                        while (getline(stream, str)) {
+                            stringstream istream(str);
+                            string token;
+                            int currentIndex = 0;
+                            while (getline(istream, token, ',')) {
+                                if (currentIndex == stlbindexvalnext.getvalue(j)) {
+                                    column.push_back(token);
+                                    break;
+                                }
+                                currentIndex++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // фильтруем нужные строки
+        for (int i = 0; i < conditions.size; ++i) {
+            if (conditions.getvalue(i).table == table.getvalue(0)) {
+                stringstream stream(tables.getvalue(i));
+                string str;
+                string filetext;
+                int iterator = 0; // нужно для условиястолбец 
+                while (getline(stream, str)) {
+                    SinglyLinkedList<bool> checkstr;
+                    for (int j = 0; j < value.size; ++j) {
+                        stringstream istream(str);
+                        string token;
+                        int currentIndex = 0;
+                        bool check = false;
+                        while (getline(istream, token, ',')) {
+                            if (value.getvalue(j).check) { // если просто условие
+                                if (currentIndex == stlbindexval.getvalue(j) && token == value.getvalue(j).value) {
+                                    check = true;
+                                    break;
+                                }
+                                currentIndex++;
+                            } else { // если условие столбец
+                                if (currentIndex == stlbindexval.getvalue(j) && token == column.getvalue(iterator)) {
+                                    check = true;
+                                    break;
+                                }
+                                currentIndex++;
+                            }
+                        }
+                        checkstr.push_back(check);
+                    }
+                    if (value.getvalue(1).logicalOP == "and") { // Если оператор И
+                        if (checkstr.getvalue(0) && checkstr.getvalue(1)) filetext += str + "\n";
+                    } else { // Если оператор ИЛИ
+                        if (!checkstr.getvalue(0) && !checkstr.getvalue(1));
+                        else filetext += str + "\n";
+                    }
+                    iterator++;
+                }
+                tables.replace(i, filetext);
+            }
+        }
+
+        sample(stlbindex, tables); // выборка
+
+        for (int i = 0; i < conditions.size; ++i) {
+            filepath = "../" + nameBD + '/' + conditions.getvalue(i).table + '/' + conditions.getvalue(i).table + "_lock.txt";
+            foutput(filepath, "open");
+        }
+    }
+
+ 
     // Вспомогательные ф-ии, чтобы избежать повтора кода в основных ф-иях
     bool checkLockTable(string table) { // ф-ия проверки, закрыта ли таблица
         string filepath = "../" + nameBD + "/" + table + "/" + table + "_lock.txt";
@@ -658,7 +818,7 @@ struct DataBase {
         return stlbindex;
     }
 
-    int findIndexStlbCond(string& table, string& stolbec) { // ф-ия нахождения индекса столбца условия(для select)
+    int findIndexStlbCond(string table, string stolbec) { // ф-ия нахождения индекса столбца условия(для select)
         int index = nametables.getindex(table);
         string str = stlb.getvalue(index);
         stringstream ss(str);
