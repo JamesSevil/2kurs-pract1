@@ -38,7 +38,6 @@ struct DataBase {
     SinglyLinkedList<string> nametables; // названия таблиц
     SinglyLinkedList<string> stlb; // столбцы таблиц
     SinglyLinkedList<int> fileindex; // кол-во файлов таблиц
-    SinglyLinkedList<int> countlines; // кол-во строк таблиц
 
     struct Where { // структура для фильтрации
         string table;
@@ -77,7 +76,6 @@ struct DataBase {
                 kolonki.pop_back(); // удаление последней запятой
                 stlb.push_back(kolonki);
                 fileindex.push_back(1);
-                countlines.push_back(1);
             }
         } else {
             cout << "Объект подкаталогов не найден!" << endl;
@@ -103,6 +101,12 @@ struct DataBase {
             filepath = "../" + nameBD + "/" + nametables.getvalue(i) + "/" + nametables.getvalue(i) + "_lock.txt";
             file.open(filepath);
             file << "open";
+            file.close();
+
+            // ключ
+            filepath = "../" + nameBD + "/" + nametables.getvalue(i) + "/" + nametables.getvalue(i) + "_pk_sequence.txt";
+            file.open(filepath);
+            file << "1";
             file.close();
         }
     }
@@ -357,8 +361,13 @@ struct DataBase {
     }
 
     void insert(string& table, string& values) { // ф-ия вставки в таблицу
-        string filepath;
+        string filepath = "../" + nameBD + "/" + table + "/" + table + "_pk_sequence.txt";
         int index = nametables.getindex(table); // получаем индекс таблицы(aka key)
+        string val = finput(filepath);
+        int valint = stoi(val);
+        valint++;
+        foutput(filepath, to_string(valint));
+
         if (checkLockTable(table)) {
             filepath = "../" + nameBD + "/" + table + "/" + table + "_lock.txt";
             foutput(filepath, "close");
@@ -377,12 +386,10 @@ struct DataBase {
                 } else break;
                 countline = CountLine(filepath);
             }
+
             fstream file;
             file.open(filepath, ios::app);
-            int val = countlines.getvalue(index);
-            file << to_string(val) + ',' + values + '\n';
-            val++;
-            countlines.replace(index, val);
+            file << val + ',' + values + '\n';
             file.close();
 
             filepath = "../" + nameBD + "/" + table + "/" + table + "_lock.txt";
